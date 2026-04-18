@@ -107,7 +107,7 @@ E-commerce-Decision-Intelligence-System/
 │   └── banner.png                   # Repository banner image
 │
 ├── 📁 data/
-│   └── events.csv                   # Retailrocket dataset (not tracked by git)
+│   └── events.csv                   # Retailrocket dataset (not tracked — see setup)
 │
 ├── 📁 src/
 │   └── 📁 baseline/
@@ -119,6 +119,8 @@ E-commerce-Decision-Intelligence-System/
 │       ├── decision.py              # 🧠 Margin-aware reordering engine
 │       └── evaluation.py           # 📈 Dual-system evaluation framework
 │
+├── publish_to_notion.py             # 🔗 Utility: publish case study to Notion
+├── verify_notion.py                 # ✅ Utility: verify Notion API connectivity
 ├── .gitignore
 ├── requirements.txt
 └── README.md
