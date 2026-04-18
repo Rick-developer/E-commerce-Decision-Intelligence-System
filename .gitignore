@@ -1,0 +1,10 @@
+# Ignore datasets to prevent pushing large files to GitHub
+data/*.csv
+data/*.json
+
+# Python environments and cache
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
