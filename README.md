@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/banner.png" alt="E-commerce Decision Intelligence System" width="100%"/>
+  <img src="assets/banner.png" alt="E-commerce Decision Intelligence System" width="70%"/>
 </p>
 
 <h1 align="center">🛒 E-commerce Decision Intelligence System</h1>
