@@ -112,12 +112,89 @@ def calculate_position_weighted_yield(recommendations_df: pd.DataFrame, truth_di
                 
     return total_weighted_yield
 
+def calculate_ndcg_at_k(recommendations_df: pd.DataFrame, truth_dict: dict, k: int = 10) -> float:
+    """
+    Normalized Discounted Cumulative Gain @K.
+    
+    Measures ranking quality by comparing the actual recommendation order against
+    the ideal (perfect) ordering. A score of 1.0 means every relevant item is 
+    placed at the highest possible position; lower scores indicate suboptimal ordering.
+    
+    Formula:
+        DCG  = Σ rel_i / log₂(i + 1)    for i in 1..K
+        IDCG = Σ rel_i / log₂(i + 1)    for the ideal (sorted) ordering
+        NDCG = DCG / IDCG
+    
+    Uses binary relevance: rel_i = 1 if item was purchased, 0 otherwise.
+    """
+    ndcg_scores = []
+    grouped = recommendations_df.groupby('visitorid')
+    
+    for visitor, group in grouped:
+        if visitor not in truth_dict:
+            continue
+            
+        top_k_items = group.head(k)['itemid'].tolist()
+        actual_items = truth_dict[visitor]
+        
+        # Binary relevance vector: 1 if purchased, 0 otherwise
+        relevance = [1.0 if item in actual_items else 0.0 for item in top_k_items]
+        
+        # DCG: sum of relevance / log2(position + 1)
+        dcg = sum(rel / np.log2(pos + 2) for pos, rel in enumerate(relevance))
+        
+        # IDCG: ideal ordering — all 1s first, then 0s
+        ideal_relevance = sorted(relevance, reverse=True)
+        idcg = sum(rel / np.log2(pos + 2) for pos, rel in enumerate(ideal_relevance))
+        
+        if idcg > 0:
+            ndcg_scores.append(dcg / idcg)
+        else:
+            # No relevant items in ground truth for this user — skip
+            ndcg_scores.append(0.0)
+    
+    return np.mean(ndcg_scores) if ndcg_scores else 0.0
+
+def calculate_mrr(recommendations_df: pd.DataFrame, truth_dict: dict, k: int = 10) -> float:
+    """
+    Mean Reciprocal Rank @K.
+    
+    Measures how quickly the system surfaces the FIRST relevant item.
+    High MRR = relevant items appear near the top of the list.
+    
+    Formula:
+        RR  = 1 / rank_of_first_relevant_item    (0 if no hit in top-K)
+        MRR = mean(RR) across all users
+    
+    Critical for user experience: users rarely scroll past the first few results.
+    """
+    reciprocal_ranks = []
+    grouped = recommendations_df.groupby('visitorid')
+    
+    for visitor, group in grouped:
+        if visitor not in truth_dict:
+            continue
+            
+        top_k_items = group.head(k)['itemid'].tolist()
+        actual_items = truth_dict[visitor]
+        
+        rr = 0.0
+        for position, item in enumerate(top_k_items, start=1):
+            if item in actual_items:
+                rr = 1.0 / position
+                break
+        
+        reciprocal_ranks.append(rr)
+    
+    return np.mean(reciprocal_ranks) if reciprocal_ranks else 0.0
+
 def evaluate_dual_system(ranked_df: pd.DataFrame, decision_df: pd.DataFrame, 
                          test_purchases: pd.DataFrame, item_features_df: pd.DataFrame, k: int = 10) -> pd.DataFrame:
     """
     Diagnostic Orchestrator.
     Compares baseline behavioral ranking vs business-enhanced decisioning using:
     - Set-based metrics (Hit Rate, Precision, Flat Yield) — same items → same scores
+    - Ranking-quality metrics (NDCG, MRR) — captures ordering effectiveness
     - Position-weighted yield (DCG-Margin) — captures reordering benefit
     """
     truth_dict = get_ground_truth(test_purchases)
@@ -125,27 +202,37 @@ def evaluate_dual_system(ranked_df: pd.DataFrame, decision_df: pd.DataFrame,
     ml_metrics = calculate_metrics_at_k(ranked_df, truth_dict, k=k)
     ml_yield = calculate_business_yield(ranked_df, truth_dict, item_features_df, k=k)
     ml_pw_yield = calculate_position_weighted_yield(ranked_df, truth_dict, item_features_df, k=k)
+    ml_ndcg = calculate_ndcg_at_k(ranked_df, truth_dict, k=k)
+    ml_mrr = calculate_mrr(ranked_df, truth_dict, k=k)
     
     bus_metrics = calculate_metrics_at_k(decision_df, truth_dict, k=k)
     bus_yield = calculate_business_yield(decision_df, truth_dict, item_features_df, k=k)
     bus_pw_yield = calculate_position_weighted_yield(decision_df, truth_dict, item_features_df, k=k)
+    bus_ndcg = calculate_ndcg_at_k(decision_df, truth_dict, k=k)
+    bus_mrr = calculate_mrr(decision_df, truth_dict, k=k)
     
     result = {
         'Evaluation Metric': [
             f'Hit Rate @{k}', 
             f'Precision @{k}', 
+            f'NDCG @{k}',
+            f'MRR @{k}',
             'Margin Yield ($)',
             'Position-Weighted Yield ($)'
         ],
         'Baseline (Behavioral)': [
             round(ml_metrics['hit_rate_at_k'], 4), 
             round(ml_metrics['precision_at_k'], 4), 
+            round(ml_ndcg, 4),
+            round(ml_mrr, 4),
             round(ml_yield, 2),
             round(ml_pw_yield, 2)
         ],
         'Decision Engine': [
             round(bus_metrics['hit_rate_at_k'], 4), 
             round(bus_metrics['precision_at_k'], 4), 
+            round(bus_ndcg, 4),
+            round(bus_mrr, 4),
             round(bus_yield, 2),
             round(bus_pw_yield, 2)
         ]
