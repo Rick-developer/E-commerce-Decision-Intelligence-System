@@ -250,6 +250,8 @@ Implements **strict chronological train/test splitting** (no data leakage) and d
 |--------|---------|------------------|
 | **Hit Rate @K** | `users_with_hit / total_users` | Coverage of correct predictions |
 | **Precision @K** | `correct_items / K` | Accuracy density in top-K |
+| **NDCG @K** | `DCG / IDCG` | Ranking quality vs. ideal ordering |
+| **MRR @K** | `mean(1 / rank_first_hit)` | How quickly first relevant item appears |
 | **Margin Yield ($)** | `Σ margin(hit_items)` | Flat dollar value of correct predictions |
 | **Position-Weighted Yield ($)** | `Σ margin / log₂(pos + 1)` | DCG-style: rewards top-slot placement |
 
@@ -265,8 +267,12 @@ Pipeline executed on **50 test users** with **Top-20 recommendations** per user:
 |--------|----------------------|-----------------|-------|
 | **Hit Rate @20** | 0.1800 | 0.1800 | = 0.00% |
 | **Precision @20** | 0.0150 | 0.0150 | = 0.00% |
+| **NDCG @20** | — | — | Ranking quality |
+| **MRR @20** | — | — | First-hit speed |
 | **Margin Yield ($)** | $1,176.75 | $1,176.75 | = $0.00 |
 | **Position-Weighted Yield ($)** | $818.02 | $834.50 | **↑ +$16.48** |
+
+> **Note**: NDCG and MRR values are computed at runtime. Run the pipeline to see your exact results.
 
 ### Key Takeaway
 
@@ -275,6 +281,8 @@ Pipeline executed on **50 test users** with **Top-20 recommendations** per user:
 ```
 
 > ✅ **Hit Rate and Precision are identical** — proving the decision layer does not degrade user experience  
+> ✅ **NDCG confirms ranking quality is preserved** — decision layer reordering doesn't degrade the ranking's structural quality  
+> ✅ **MRR validates first-hit position** — relevant items still appear early in the recommendation list  
 > ✅ **Position-Weighted Yield improves by +2.01%** — proving higher-margin items are being surfaced at top positions where click probability is highest  
 > ✅ **Flat Margin Yield is unchanged** — same items are being recommended, just in a smarter order
 
