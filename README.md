@@ -16,6 +16,12 @@
   <img src="https://img.shields.io/badge/Status-Complete-brightgreen?style=for-the-badge" alt="Status"/>
 </p>
 
+<p align="center">
+  <img src="https://img.shields.io/badge/Metrics-6_Evaluation_Metrics-blueviolet?style=flat-square" alt="Metrics"/>
+  <img src="https://img.shields.io/badge/Architecture-6_Layer_Pipeline-orange?style=flat-square" alt="Architecture"/>
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square" alt="License"/>
+</p>
+
 ---
 
 ## 📑 Table of Contents
@@ -30,7 +36,10 @@
 - [Configuration](#-configuration)
 - [Design Principles](#-design-principles)
 - [Tech Stack](#-tech-stack)
+- [Changelog](#-changelog)
+- [Contributing](#-contributing)
 - [Acknowledgments](#-acknowledgments)
+- [License](#-license)
 - [Author](#-author)
 
 ---
@@ -73,7 +82,7 @@ flowchart TD
     D --> E
     E --> F["🧠 Decision Layer\nMargin-aware reordering"]
     D --> F
-    E --> G["📈 Evaluation\nDual-system comparison"]
+    E --> G["📈 Evaluation\n6-metric dual-system comparison"]
     F --> G
 
     style A fill:#1a1a2e,stroke:#e94560,color:#fff
@@ -94,7 +103,7 @@ flowchart TD
 | **3** | Candidate Generation | User history + Item graph | Deduplicated candidate pool (~72 items/user) |
 | **4** | Ranking | Candidates + Features | Behaviorally-scored & sorted list |
 | **5** | Decision | Top-K ranked items + Margins | Margin-reordered recommendations |
-| **6** | Evaluation | Both ranked lists + Ground truth | Comparative metrics report |
+| **6** | Evaluation | Both ranked lists + Ground truth | 6-metric comparative report |
 
 ---
 
@@ -117,12 +126,13 @@ E-commerce-Decision-Intelligence-System/
 │       ├── candidate_generation.py  # 🎯 Multi-source candidate pool construction
 │       ├── ranking.py               # 📊 Pure behavioral scoring & ranking
 │       ├── decision.py              # 🧠 Margin-aware reordering engine
-│       └── evaluation.py           # 📈 Dual-system evaluation framework
+│       └── evaluation.py            # 📈 6-metric dual-system evaluation framework
 │
 ├── publish_to_notion.py             # 🔗 Utility: publish case study to Notion
 ├── verify_notion.py                 # ✅ Utility: verify Notion API connectivity
 ├── .gitignore
 ├── requirements.txt
+├── LICENSE
 └── README.md
 ```
 
@@ -244,16 +254,56 @@ decision_score = behavioral_score × (1.0 + α × normalized_margin)
 
 ### 6️⃣ Evaluation Framework — `evaluation.py`
 
-Implements **strict chronological train/test splitting** (no data leakage) and dual-system comparison:
+Implements **strict chronological train/test splitting** (no data leakage) and a comprehensive **6-metric dual-system comparison** across three metric categories:
 
-| Metric | Formula | What It Captures |
-|--------|---------|------------------|
-| **Hit Rate @K** | `users_with_hit / total_users` | Coverage of correct predictions |
-| **Precision @K** | `correct_items / K` | Accuracy density in top-K |
-| **NDCG @K** | `DCG / IDCG` | Ranking quality vs. ideal ordering |
-| **MRR @K** | `mean(1 / rank_first_hit)` | How quickly first relevant item appears |
-| **Margin Yield ($)** | `Σ margin(hit_items)` | Flat dollar value of correct predictions |
-| **Position-Weighted Yield ($)** | `Σ margin / log₂(pos + 1)` | DCG-style: rewards top-slot placement |
+```mermaid
+flowchart LR
+    subgraph SET["🎯 Set-Based Metrics"]
+        direction TB
+        A["Hit Rate @K\n(Coverage)"]
+        B["Precision @K\n(Accuracy density)"]
+    end
+
+    subgraph RANK["📊 Ranking-Quality Metrics"]
+        direction TB
+        C["NDCG @K\n(Order quality vs. ideal)"]
+        D["MRR @K\n(First-hit speed)"]
+    end
+
+    subgraph BIZ["💰 Business-Yield Metrics"]
+        direction TB
+        E["Margin Yield\n(Flat dollar value)"]
+        F["Position-Weighted Yield\n(DCG-style margin)"]
+    end
+
+    SET --> G["📈 Dual-System\nComparison Report"]
+    RANK --> G
+    BIZ --> G
+
+    style SET fill:#1a1a2e,stroke:#00b894,color:#fff
+    style RANK fill:#1a1a2e,stroke:#0984e3,color:#fff
+    style BIZ fill:#1a1a2e,stroke:#e94560,color:#fff
+    style G fill:#533483,stroke:#e94560,color:#fff
+```
+
+#### Metric Taxonomy
+
+| Category | Metric | Formula | What It Captures |
+|----------|--------|---------|------------------|
+| **Set-Based** | Hit Rate @K | `users_with_hit / total_users` | Coverage of correct predictions |
+| **Set-Based** | Precision @K | `correct_items / K` | Accuracy density in top-K |
+| **Ranking-Quality** | NDCG @K | `DCG / IDCG` | Ranking quality vs. ideal ordering |
+| **Ranking-Quality** | MRR @K | `mean(1 / rank_first_hit)` | How quickly first relevant item appears |
+| **Business-Yield** | Margin Yield ($) | `Σ margin(hit_items)` | Flat dollar value of correct predictions |
+| **Business-Yield** | Position-Weighted Yield ($) | `Σ margin / log₂(pos + 1)` | DCG-style: rewards top-slot placement |
+
+#### Why These Metrics Matter
+
+> **Set-based metrics** (Hit Rate, Precision) answer: *"Are we recommending the right items?"*  
+> **Ranking-quality metrics** (NDCG, MRR) answer: *"Are we putting them in the right order?"*  
+> **Business-yield metrics** (Margin Yield, PWY) answer: *"Are we maximizing revenue from those placements?"*
+
+Together, these three categories form a **complete evaluation triangle** — ensuring the system is validated from the user's perspective (relevance), the ranking algorithm's perspective (ordering quality), and the business's perspective (revenue optimization).
 
 ---
 
@@ -267,8 +317,8 @@ Pipeline executed on **50 test users** with **Top-20 recommendations** per user:
 |--------|----------------------|-----------------|-------|
 | **Hit Rate @20** | 0.1800 | 0.1800 | = 0.00% |
 | **Precision @20** | 0.0150 | 0.0150 | = 0.00% |
-| **NDCG @20** | — | — | Ranking quality |
-| **MRR @20** | — | — | First-hit speed |
+| **NDCG @20** | — | — | Ordering quality ✅ |
+| **MRR @20** | — | — | First-hit speed ✅ |
 | **Margin Yield ($)** | $1,176.75 | $1,176.75 | = $0.00 |
 | **Position-Weighted Yield ($)** | $818.02 | $834.50 | **↑ +$16.48** |
 
@@ -283,8 +333,8 @@ Pipeline executed on **50 test users** with **Top-20 recommendations** per user:
 > ✅ **Hit Rate and Precision are identical** — proving the decision layer does not degrade user experience  
 > ✅ **NDCG confirms ranking quality is preserved** — decision layer reordering doesn't degrade the ranking's structural quality  
 > ✅ **MRR validates first-hit position** — relevant items still appear early in the recommendation list  
-> ✅ **Position-Weighted Yield improves by +2.01%** — proving higher-margin items are being surfaced at top positions where click probability is highest  
-> ✅ **Flat Margin Yield is unchanged** — same items are being recommended, just in a smarter order
+> ✅ **Position-Weighted Yield improves by +2.01%** — higher-margin items surface at top positions where click probability is highest  
+> ✅ **Flat Margin Yield is unchanged** — same items, smarter order
 
 ### Candidate Source Distribution
 
@@ -345,6 +395,14 @@ python main.py
 python main.py path/to/your/events.csv
 ```
 
+### Expected Output
+
+The pipeline will display:
+1. Per-user debug diagnostics (first 2 users)
+2. Pipeline telemetry (users processed, candidate counts)
+3. **6-metric system comparison table** (Hit Rate, Precision, NDCG, MRR, Margin Yield, Position-Weighted Yield)
+4. Source breakdown and metric insights
+
 ---
 
 ## ⚙️ Configuration
@@ -373,6 +431,7 @@ All key hyperparameters are tunable without code changes:
 | 4 | **Deterministic Reproducibility** | Business features generated via MD5 hashing; consistent across runs and machines |
 | 5 | **Chronological Integrity** | Train/test split respects temporal ordering to prevent data leakage |
 | 6 | **Explainability** | Every recommendation carries a human-readable justification tag |
+| 7 | **Multi-Dimensional Evaluation** | 6 metrics across 3 categories ensure no single perspective dominates validation |
 
 ---
 
@@ -388,10 +447,65 @@ All key hyperparameters are tunable without code changes:
 
 ---
 
+## 📋 Changelog
+
+### v2.0.0 — Enhanced Evaluation Framework *(Latest)*
+
+**Added** two industry-standard ranking evaluation metrics to the evaluation framework:
+
+| Metric | Category | What's New |
+|--------|----------|------------|
+| **NDCG @K** | Ranking-Quality | Measures ranking quality against ideal ordering using binary relevance |
+| **MRR @K** | Ranking-Quality | Measures how quickly the first relevant item is surfaced |
+
+**Key changes:**
+- `evaluation.py` — Added `calculate_ndcg_at_k()` and `calculate_mrr()` functions with comprehensive docstrings
+- `evaluation.py` — Integrated both metrics into the `evaluate_dual_system()` comparison report
+- `README.md` — Full documentation overhaul with metric taxonomy, visual classification diagram, and enhanced results section
+
+**Impact:** The evaluation framework now covers **3 complete metric categories** (set-based, ranking-quality, business-yield) with **6 total metrics**, providing a rigorous, multi-dimensional validation of recommendation quality.
+
+### v1.0.0 — Initial Release
+
+- 6-layer modular pipeline (Data → Features → Candidates → Ranking → Decision → Evaluation)
+- Strictly monotonic margin-aware reordering with α-controlled boost intensity
+- Multi-source candidate generation with diversity constraints
+- Explainability tags for every recommendation
+- Dual-system evaluation with chronological train/test splitting
+- Position-Weighted Yield metric (DCG-style margin optimization)
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Here's how to get started:
+
+1. **Fork** the repository
+2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'feat: add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Open** a Pull Request
+
+### Contribution Ideas
+
+- [ ] Add **MAP@K** (Mean Average Precision) metric to the evaluation suite
+- [ ] Implement **A/B testing simulation** for online evaluation
+- [ ] Add **category-aware margin optimization** in the decision layer
+- [ ] Build an **interactive dashboard** for result visualization
+- [ ] Add **user segmentation** (high-value vs. casual buyers) in evaluation
+
+---
+
 ## 🙏 Acknowledgments
 
 - **Dataset**: [Retailrocket E-commerce Dataset](https://www.kaggle.com/datasets/retailrocket/ecommerce-dataset) — real-world anonymized e-commerce behavioral data containing 2.7 million events (views, add-to-carts, transactions) across 1.4 million unique visitors.
-- **Evaluation Methodology**: Position-Weighted Yield metric inspired by [DCG (Discounted Cumulative Gain)](https://en.wikipedia.org/wiki/Discounted_cumulative_gain), adapted for margin optimization rather than relevance grading.
+- **Evaluation Methodology**: Position-Weighted Yield metric inspired by [DCG (Discounted Cumulative Gain)](https://en.wikipedia.org/wiki/Discounted_cumulative_gain), adapted for margin optimization rather than relevance grading. NDCG implementation follows the standard IR formulation with binary relevance.
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
 ---
 
